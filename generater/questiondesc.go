@@ -20,17 +20,50 @@ var leetcodePayload string = `{
     "query": "query questionData($titleSlug: String!) {\n  question(titleSlug: $titleSlug) {\n    questionId\n    questionFrontendId\n    boundTopicId\n    title\n    titleSlug\n    content\n    translatedTitle\n    translatedContent\n    isPaidOnly\n    difficulty\n    likes\n    dislikes\n    isLiked\n    similarQuestions\n    contributors {\n      username\n      profileUrl\n      avatarUrl\n      __typename\n    }\n    langToValidPlayground\n    topicTags {\n      name\n      slug\n      translatedName\n      __typename\n    }\n    companyTagStats\n    codeSnippets {\n      lang\n      langSlug\n      code\n      __typename\n    }\n    stats\n    hints\n    solution {\n      id\n      canSeeDetail\n      __typename\n    }\n    status\n    sampleTestCase\n    metaData\n    judgerAvailable\n    judgeType\n    mysqlSchemas\n    enableRunCode\n    envInfo\n    book {\n      id\n      bookName\n      pressName\n      source\n      shortDescription\n      fullDescription\n      bookImgUrl\n      pressImgUrl\n      productUrl\n      __typename\n    }\n    isSubscribed\n    isDailyQuestion\n    dailyRecordStatus\n    editorType\n    ugcQuestionId\n    style\n    exampleTestcases\n    __typename\n  }\n}\n"
 }`
 
-func QuestionDesc(q string, path string) error {
-	res, err := RequestLeetcode(q)
-	if err != nil {
-		return err
+var leetcodeTemp string = `package %s
+	
+%s
+`
+
+type QuestionGenerater interface {
+	WriteDesc(path string) error
+	WriteCode(path string) error
+}
+
+type LeetCodeDesc struct {
+	name string
+	desc string
+	code string
+}
+
+func (l LeetCodeDesc) WriteDesc(path string) error {
+	path = fmt.Sprintf("%s/%s", path, l.name)
+	if err := os.MkdirAll(path, 0766); err != nil {
+		panic(err)
 	}
-	markdown, err := FormatResponse(res)
+	return WriteStringToFile(l.desc, path+fmt.Sprintf("/%s.md", l.name))
+}
+
+func (l LeetCodeDesc) WriteCode(path string) error {
+	path = fmt.Sprintf("%s/%s", path, l.name)
+	if err := os.MkdirAll(path, 0766); err != nil {
+		panic(err)
+	}
+	return WriteStringToFile(l.code, path+fmt.Sprintf("/%s.go", l.name))
+}
+
+func NewLeetCode(name string) (QuestionGenerater, error) {
+	res, err := RequestLeetcode(name)
 	if err != nil {
-		return err
+		return nil, err
+	}
+	markdown, code, err := FormatResponse(res)
+	if err != nil {
+		return nil, err
 	}
 
-	return WriteStringToFile(markdown, path)
+	code = fmt.Sprintf(leetcodeTemp, strings.ReplaceAll(name, "-", "_"), code)
+	return LeetCodeDesc{name, markdown, code}, nil
 }
 
 func RequestLeetcode(q string) (*http.Response, error) {
@@ -40,7 +73,7 @@ func RequestLeetcode(q string) (*http.Response, error) {
 	s := fmt.Sprintf(leetcodePayload, q)
 	payload := strings.NewReader(s)
 
-	client := &http.Client {}
+	client := &http.Client{}
 	req, err := http.NewRequest(method, url, payload)
 
 	if err != nil {
@@ -53,28 +86,30 @@ func RequestLeetcode(q string) (*http.Response, error) {
 	return client.Do(req)
 }
 
-func FormatResponse(res *http.Response) (string, error) {
+func FormatResponse(res *http.Response) (markdown string, code string, err error) {
 	defer res.Body.Close()
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return "", err
+		return markdown, code, err
 	}
 
 	questionInfo := NewQuestionResponse()
 	err = json.Unmarshal(body, questionInfo)
 	if err != nil {
-		return "", err
+		return markdown, code, err
 	}
 
 	converter := md.NewConverter("", true, nil)
-	markdown, err := converter.ConvertString(questionInfo.GetQuestion())
+	markdown, err = converter.ConvertString(questionInfo.GetQuestion())
 	if err != nil {
 		log.Fatal(err)
-		return "", err
+		return markdown, code, err
 	}
 
-	return markdown, nil
+	code = questionInfo.GetCode("Go")
+
+	return markdown, code, nil
 }
 
 func WriteStringToFile(content, path string) error {

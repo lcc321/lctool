@@ -67,3 +67,13 @@ func NewQuestionResponse() *QuestionResponse {
 func (q *QuestionResponse) GetQuestion() string {
 	return q.Data.Question.TranslatedContent
 }
+
+func (q *QuestionResponse) GetCode(lang string) string {
+	for _, c := range q.Data.Question.CodeSnippets {
+		if c.Lang == lang {
+			return c.Code
+		}
+	}
+
+	return ""
+}

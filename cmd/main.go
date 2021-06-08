@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/leechichuang/leetcodetools/generater"
+	"github.com/lcc321/lctools/generater"
 	"github.com/urfave/cli/v2"
 	"os"
 	"runtime"

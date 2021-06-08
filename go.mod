@@ -1,4 +1,4 @@
-module github.com/leechichuang/leetcodetools
+module github.com/lcc321/lctools
 
 go 1.16
 

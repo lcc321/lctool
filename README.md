@@ -1,1 +1,1 @@
-# leetcodetools
+# lctool
